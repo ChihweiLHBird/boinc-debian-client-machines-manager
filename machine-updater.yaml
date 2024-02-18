@@ -1,0 +1,40 @@
+---
+- name: Update and reboot Ubuntu servers
+  hosts: all
+  gather_facts: true
+  become: true
+
+  tasks:
+    - name: Perform an upgrade
+      ansible.builtin.apt:
+        upgrade: safe
+        update_cache: true
+
+    - name: Check if a reboot is required
+      ansible.builtin.stat:
+        path: /var/run/reboot-required
+        get_checksum: no
+      register: reboot_required_file
+
+    - name: Reboot the server (if required)
+      ansible.builtin.reboot:
+      when: reboot_required_file.stat.exists
+
+    - name: Remove dependencies that are no longer required and purge their configuration files
+      ansible.builtin.apt:
+        autoremove: true
+        purge: true
+
+    - name: Remove useless packages from the cache
+      ansible.builtin.apt:
+        autoclean: yes
+
+    - name: Run boinc app in background
+      ansible.builtin.shell: nohup boinc </dev/null >/dev/null 2>&1 &
+      become: true
+      become_method: su
+      become_user: boincuser
+      args:
+        chdir: /home/boincuser
+      when: reboot_required_file.stat.exists
+
