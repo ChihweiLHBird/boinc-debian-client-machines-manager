@@ -1,0 +1,61 @@
+---
+- name: Update and reboot Ubuntu servers
+  hosts: new-servers
+  gather_facts: true
+  become: true
+
+  vars:
+    boinc_project_url: "{{ lookup('ansible.builtin.env','BOINC_PROJECT_URL') }}"
+    boinc_project_key: "{{ lookup('ansible.builtin.env','BOINC_PROJECT_KEY') }}"
+
+  tasks:
+    - name: Perform an upgrade
+      ansible.builtin.apt:
+        upgrade: safe
+        update_cache: true
+
+    - name: Install BOINC
+      ansible.builtin.apt:
+        name: boinc-client
+        state: present
+
+    - name: Reboot the server to shutdown the BOINC app (if it started) and make every change to be effective
+      ansible.builtin.reboot:
+
+    - name: Remove dependencies that are no longer required and purge their configuration files
+      ansible.builtin.apt:
+        autoremove: true
+        purge: true
+
+    - name: Remove useless packages from the cache
+      ansible.builtin.apt:
+        autoclean: yes
+
+    - name: Create boinc group
+      group:
+        name: boinc
+        state: present
+
+    - name: Create boinc user
+      user:
+        name: boincuser
+        state: present
+        shell: /bin/bash
+        group: boinc
+
+    - name: Run boinc app in background
+      ansible.builtin.shell: nohup boinc </dev/null >/dev/null 2>&1 &
+      become: true
+      become_method: sudo
+      become_user: boincuser
+      args:
+        chdir: /home/boincuser
+
+    - name: Add projects
+      ansible.builtin.shell: |
+        boinccmd --project_attach {{ boinc_project_url }} {{ boinc_project_key }}
+      become: true
+      become_method: sudo
+      become_user: boincuser
+      args:
+        chdir: /home/boincuser
