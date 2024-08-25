@@ -32,7 +32,7 @@
     - name: Run boinc app in background
       ansible.builtin.shell: nohup boinc </dev/null >/dev/null 2>&1 &
       become: true
-      become_method: su
+      become_method: sudo
       become_user: boincuser
       args:
         chdir: /home/boincuser
